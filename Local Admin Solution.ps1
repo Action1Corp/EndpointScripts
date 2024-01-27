@@ -13,10 +13,9 @@
 # EXCESS OF THE GREATER OF FEES PAID BY YOU THEREFOR OR $100; (II) FOR ANY INDIRECT,
 # INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER; (III) FOR
 # DATA LOSS OR COST OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; OR (IV) FOR ANY
-# MATTER BEYOND ACTION1’S REASONABLE CONTROL. SOME STATES DO NOT ALLOW THE
+# MATTER BEYOND ACTION1 S REASONABLE CONTROL. SOME STATES DO NOT ALLOW THE
 # EXCLUSION OR LIMITATION OF INCIDENTAL OR CONSEQUENTIAL DAMAGES, SO THE ABOVE
 # LIMITATIONS AND EXCLUSIONS MAY NOT APPLY TO YOU.
-
 
 
 Function rpw
@@ -26,14 +25,13 @@ Function rpw
             lc   = (97..122) | Get-Random -Count 10 | % {[char]$_}
             uc   = (65..90)  | Get-Random -Count 10 | % {[char]$_}
             n     = (48..57)  | Get-Random -Count 10 | % {[char]$_}
-            s = (33..47)+(58..64)+(91..96)+(123..126) | Get-Random -Count 10 | % {[char]$_}
     }
-    $Set = $Chars.uc + $Chars.lc + $Chars.n + $Chars.s
+    $Set = $Chars.uc + $Chars.lc + $Chars.n # + $Chars.s
     -join(Get-Random -Count $len -InputObject $Set)
 }
 
 $U="A1Admin"
-$P=$(rpw -len 12)
+$P="$(rpw 4)-$(rpw 4)-$(rpw 4)"
 
 
 if (Get-LocalUser -Name $U -ErrorAction SilentlyContinue){
@@ -46,9 +44,10 @@ if (Get-LocalUser -Name $U -ErrorAction SilentlyContinue){
         New-LocalUser -Name $U -Password $(ConvertTo-SecureString -String $P -AsPlainText -Force) -Description "Action1 remote access admin account." | Out-Null
         Add-LocalGroupMember -Group "Administrators" -Member $U
         $T=New-ScheduledTaskTrigger -AtLogon -User $U
-        $A=New-ScheduledTaskAction -Execute "net" -Argument "user $U /active:no"
-        Register-ScheduledTask -TaskName "DisableSupportAccount" -Trigger $T -Action $A -User $U -RunLevel Highest  | Out-Null
+        $A=New-ScheduledTaskAction -Execute "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument " -ExecutionPolicy bypass -NoProfile -WindowStyle hidden -NonInteractive -NoLogo -Command `"& {Disable-LocalUser -Name $($U); Get-LocalUser -Name $U `| Set-LocalUser -Password `$(ConvertTo-SecureString -String `$( -join ((32..126) | Get-Random -C 12 | %{[char]$_})) -AsPlainText -Force)}`""
+        $S=New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+        Register-ScheduledTask -TaskName "DisableSupportAccount" -Trigger $T -Action $A -User $U -RunLevel Highest -Settings $S | Out-Null
         Write-Host "`nTemp PW assigned: $P"
     }
-    
 
+    Start-Process "cmd" -ArgumentList "/c timeout /t 300 /nobreak & powershell -ExecutionPolicy bypass -NoProfile -WindowStyle hidden -NonInteractive -NoLogo -Command `"& {Disable-LocalUser -Name $($U);Get-LocalUser -Name $U | Set-LocalUser -Password `$(ConvertTo-SecureString -String $("$(rpw 4)-$(rpw 4)-$(rpw 4)") -AsPlainText -Force)}"
