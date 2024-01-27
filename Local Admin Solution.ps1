@@ -44,10 +44,10 @@ if (Get-LocalUser -Name $U -ErrorAction SilentlyContinue){
         New-LocalUser -Name $U -Password $(ConvertTo-SecureString -String $P -AsPlainText -Force) -Description "Action1 remote access admin account." | Out-Null
         Add-LocalGroupMember -Group "Administrators" -Member $U
         $T=New-ScheduledTaskTrigger -AtLogon -User $U
-        $A=New-ScheduledTaskAction -Execute "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument " -ExecutionPolicy bypass -NoProfile -WindowStyle hidden -NonInteractive -NoLogo -Command `"& {Disable-LocalUser -Name $($U); Get-LocalUser -Name $U `| Set-LocalUser -Password `$(ConvertTo-SecureString -String `$( -join ((32..126) | Get-Random -C 12 | %{[char]$_})) -AsPlainText -Force)}`""
+        $A=New-ScheduledTaskAction -Execute "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument " -ExecutionPolicy bypass -NoProfile -WindowStyle hidden -NonInteractive -NoLogo -Command `"& {Disable-LocalUser -Name $($U); Get-LocalUser -Name $U `| Set-LocalUser -Password `$(ConvertTo-SecureString -String `$( -join ((32..126) | Get-Random -C 16 | %{[char]$_})) -AsPlainText -Force)}`""
         $S=New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
         Register-ScheduledTask -TaskName "DisableSupportAccount" -Trigger $T -Action $A -User $U -RunLevel Highest -Settings $S | Out-Null
         Write-Host "`nTemp PW assigned: $P"
     }
 
-    Start-Process "cmd" -ArgumentList "/c timeout /t 300 /nobreak & powershell -ExecutionPolicy bypass -NoProfile -WindowStyle hidden -NonInteractive -NoLogo -Command `"& {Disable-LocalUser -Name $($U);Get-LocalUser -Name $U | Set-LocalUser -Password `$(ConvertTo-SecureString -String $("$(rpw 4)-$(rpw 4)-$(rpw 4)") -AsPlainText -Force)}"
+    Start-Process "cmd" -ArgumentList "/c timeout /t 300 /nobreak & powershell -ExecutionPolicy bypass -NoProfile -WindowStyle hidden -NonInteractive -NoLogo -Command `"& {Disable-LocalUser -Name $($U);Get-LocalUser -Name $U | Set-LocalUser -Password `$(ConvertTo-SecureString -String `$( -join ((32..126) | Get-Random -C 16 | %{[char]$_})) -AsPlainText -Force)}"
