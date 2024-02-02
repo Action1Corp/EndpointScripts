@@ -33,7 +33,7 @@ if($nfo -match ".*Windows RE status:.*Enabled.*"){ #Verify if WINRE is enabled, 
   $Diskpart_Script += "shrink desired=250 minimum=250`n" #Shrink by 250m.
   $Diskpart_Script += "sel partition $partition`n" #Target recovery partition.
   $Diskpart_Script += "delete partition override`n" #Remove it.
-  if ($disk_type = 'GPT'){ #Recreate partition based on partiton table layout.
+  if ($disk_type -eq 'GPT'){ #Recreate partition based on partiton table layout.
     $Diskpart_Script += "create partition primary id=de94bba4-06d1-4d40-a16a-bfd50179d6ac`n"
     $Diskpart_Script += "gpt attributes=0x8000000000000001`n"
   }else{
