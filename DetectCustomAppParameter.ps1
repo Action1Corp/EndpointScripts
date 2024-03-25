@@ -39,6 +39,7 @@ $AppsData = foreach ($Path in $UninstallPaths) {
 
 # Present the application data to the user for selection.
 $SelectedAppData = $AppsData | Sort-Object MachineWide, 'Display Name' |
+    Select-Object 'Display Name', 'Version Number', Vendor, MachineWide |
     Out-GridView -Title "Select Application" -OutputMode Single
 
 # Process the selected application.
