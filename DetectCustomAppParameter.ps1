@@ -45,26 +45,30 @@ $SelectedAppData = $AppsData | Sort-Object MachineWide, 'Display Name' |
 # Process the selected application.
 if ($SelectedAppData) {
     if (-not $SelectedAppData.MachineWide) {
-        Write-Error "Action1 does not support per-user app deployment for security and lack of manageability reasons. Please select an application installed machine-wide."
-        exit 1
+        Write-Output "Action1 does not support per-user app deployment for security and lack of manageability reasons. Please select an application installed machine-wide."
+    } else {
+        $AppName = $SelectedAppData.'Display Name'
+        if ($AppName -match '(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.\d+)') {
+            $AppVersion = $Matches[0]
+        } else {
+            $AppVersion = $SelectedAppData.'Version Number'
+        }
+
+        # Determine the application architecture based on the path.
+        $AppArchitecture = if ($SelectedAppData.PSPath -match "WOW6432Node") { "32-bit" } else { "64-bit" }
+
+        # Output the application information line by line.
+        Write-Output "Display Name:"
+        Write-Output $AppName.Trim()
+        Write-Output "Vendor:"
+        Write-Output $SelectedAppData.Vendor
+        Write-Output "Architecture:"
+        Write-Output $AppArchitecture
+        Write-Output "Version Number:"
+        Write-Output $AppVersion
+
+        Write-Output "`nFor step-by-step instructions on how to add custom Software Repository packages, please follow this guide: https://www.action1.com/documentation/add-custom-packages-to-app-store/"
     }
-
-    $AppName = $SelectedAppData.'Display Name'
-    $AppVersion = if ($AppName -match '(?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.\d+)') { $Matches[0] } else { $SelectedAppData.'Version Number' }
-
-    # Determine the application architecture based on the path.
-    $AppArchitecture = if ($SelectedAppData.PSPath -match "WOW6432Node") { "32-bit" } else { "64-bit" }
-
-    # Compile the application information into a custom object.
-    $AppInfo = [PSCustomObject]@{
-        'Display Name' = $AppName.Trim()
-        Vendor = $SelectedAppData.Vendor
-        Architecture = $AppArchitecture
-        'Version Number' = $AppVersion
-    }
-
-    # Output the application information.
-    $AppInfo
 } else {
-    Write-Output "No App Selected. Exiting."
+    Write-Output "No App Selected."
 }
