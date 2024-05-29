@@ -38,16 +38,16 @@ if (Get-LocalUser -Name $U -ErrorAction SilentlyContinue){
         Write-Host "Account is already present, Action: Password Reset/Enable"
         Get-LocalUser -Name $U | Set-LocalUser -Password $(ConvertTo-SecureString -String $P -AsPlainText -Force)
         Enable-LocalUser -Name $U
-        Write-Host "`nTemp PW assigned: $P"
     }else{
-        Write-Host "Account is not present, Action: Create account and Task."
+        Write-Host "Account is not present, Action: Create account and maintenance tasks."
         New-LocalUser -Name $U -Password $(ConvertTo-SecureString -String $P -AsPlainText -Force) -Description "Action1 remote access admin account." | Out-Null
         Add-LocalGroupMember -Group "Administrators" -Member $U
         $T=New-ScheduledTaskTrigger -AtLogon -User $U
+        $T2=New-ScheduledTaskTrigger -AtStartup
         $A=New-ScheduledTaskAction -Execute "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument " -ExecutionPolicy bypass -NoProfile -WindowStyle hidden -NonInteractive -NoLogo -Command `"& {Disable-LocalUser -Name $($U); Get-LocalUser -Name $U `| Set-LocalUser -Password `$(ConvertTo-SecureString -String `$( -join ((32..126) | Get-Random -C 16 | %{[char]$_})) -AsPlainText -Force)}`""
         $S=New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-        Register-ScheduledTask -TaskName "DisableSupportAccount" -Trigger $T -Action $A -User $U -RunLevel Highest -Settings $S | Out-Null
-        Write-Host "`nTemp PW assigned: $P"
+        Register-ScheduledTask -TaskName "LADMIN_DISABLE_OnLogon" -Trigger $T -Action $A -User $U -RunLevel Highest -Settings $S | Out-Null # At logon of named user.
+        Register-ScheduledTask -TaskName "LADMIN_DISABLE_OnStart" -Trigger $T2 -Action $A -User 'System' -RunLevel Highest -Settings $S | Out-Null # At startup in case system was rebooted before watchdog expired.
     }
-
+    Write-Host "`nTemp PW assigned: $P"
     Start-Process "cmd" -ArgumentList "/c timeout /t 300 /nobreak & powershell -ExecutionPolicy bypass -NoProfile -WindowStyle hidden -NonInteractive -NoLogo -Command `"& {Disable-LocalUser -Name $($U);Get-LocalUser -Name $U | Set-LocalUser -Password `$(ConvertTo-SecureString -String `$( -join ((32..126) | Get-Random -C 16 | %{[char]$_})) -AsPlainText -Force)}"
