@@ -1,7 +1,7 @@
 ﻿# Name: CustomAttributeSoftwareInstallStatus.ps1
-# Description: Script is designed to set custom attribute to show if software is installed or not installed.  
+# Description: Script is designed to set custom attribute to show if software is installed or not installed - see below documentation link for more information
 # Copyright (C) 2024 Action1 Corporation
-# Documentation: https://github.com/Action1Corp/PSAction1/
+# Documentation: https://www.action1.com/documentation/custom-attributes/
 # Use Action1 Roadmap system (https://roadmap.action1.com/) to submit feedback or enhancement requests.
 
 # WARNING: Carefully study the provided scripts and components before using them. Test in your non-production lab first.
@@ -19,7 +19,7 @@
 
 
 # Insert software to check for here
-$SoftwareName = <Insert Software Name Here>
+$SoftwareName = "Google Chrome" #Change to desired software
 
 Function Test-SoftInstalled {
     Param ([string]$Name)
