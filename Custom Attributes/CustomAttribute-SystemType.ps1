@@ -1,4 +1,4 @@
-# Name: CustomAttributeChassisType.ps1
+# Name: CustomAttributeSystemType.ps1
 # Description: Script is designed to set custom attribute to what type of system the endpoint is.  
 # Copyright (C) 2024 Action1 Corporation
 # Documentation: https://www.action1.com/documentation/custom-attributes/
