@@ -1,4 +1,4 @@
-# Name: RunInLoggedOnUserContext.ps1
+# Name: RunAsLoggedOnUserContext.ps1
 # Description: Script is designed to set allow for running scripts under the context of the currently logged on user.   
 # Copyright (C) 2024 Action1 Corporation
 # Documentation: https://www.action1.com/documentation/run-scripts-remotely/
