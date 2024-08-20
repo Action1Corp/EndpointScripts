@@ -26,17 +26,7 @@ $ProgressPreference = "SilentlyContinue" # Keep this in place
 
 # Your custom script goes here - example script below
 
-$registryPath = "HKCU:\Software\CustomApp"
-   $registryName = "TestValue"
-   $expectedValue = "12345"
-
-   $actualValue = Get-ItemProperty -Path $registryPath -Name $registryName -ErrorAction SilentlyContinue
-   
-   if ($actualValue -and $actualValue.$registryName -eq $expectedValue) {
-       Write-Output "Registry test passed: Value set correctly for the logged-on user."
-   } else {
-       Write-Output "Registry test failed: Value not set or incorrect."
-   }
+(New-Object -ComObject Wscript.Shell).Popup("Hello", 5, "Message From Your IT Team", 64)
    
 '@
 
