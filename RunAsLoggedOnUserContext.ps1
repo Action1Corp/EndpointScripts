@@ -423,10 +423,9 @@ function Start-ProcessAsUserWithScript {
 
 # Main script execution
 try {
-    $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    $isSystem = $currentUser -eq "NT AUTHORITY\SYSTEM"
+    $isSystem = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq 'S-1-5-18'
     if (-not $isSystem) {
-        throw "Script is not running as SYSTEM. This script is designed to run in the SYSTEM context."
+        throw "Script is not running as SYSTEM. This script is designed to run in the SYSTEM context. "
     }
     
     # Create the embedded script using the custom script content
