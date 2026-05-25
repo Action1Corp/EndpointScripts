@@ -1,4 +1,4 @@
-# Name: Local Admin Solution
+# Name: LocalAdminSolution.ps1
 # Description: Maintains a local admin account for remote access.
 
 # Documentation: https://github.com/Action1Corp/EndpointScripts

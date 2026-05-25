@@ -1,4 +1,4 @@
-# Name: DetectCustomAppParameters.ps1
+# Name: DetectCustom-AppParameter.ps1
 # Description: Use this script to assist in creation of your custom software repository packages in Action1.
 
 # Documentation: https://www.action1.com/documentation/add-custom-packages-to-app-store/

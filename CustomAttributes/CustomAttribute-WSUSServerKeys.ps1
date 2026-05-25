@@ -1,4 +1,4 @@
-# Name: CustomAttribute-WSUSEnabledorDisabled.ps1
+# Name: CustomAttribute-WSUSServerKeys.ps1
 # Description: Script is designed to set custom attribute to detect if WSUS is enabled on Endpoint.  
 
 # Documentation: https://www.action1.com/documentation/custom-attributes/
