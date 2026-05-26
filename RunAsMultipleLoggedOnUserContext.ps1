@@ -1,19 +1,26 @@
 # Name: RunAsLoggedOnUserContext.ps1
 # Description: Script is designed to set allow for running scripts under the context of the currently logged on user.   
-
+# Copyright (C) 2024 Action1 Corporation
 # Documentation: https://www.action1.com/documentation/run-scripts-remotely/
 # Use Action1 Roadmap system (https://roadmap.action1.com/) to submit feedback or enhancement requests.
 
 # WARNING: Carefully study the provided scripts and components before using them. Test in your non-production lab first.
 
-# Action1 Public Repository Material
-# Subject to TERMS_OF_USE.md (https://github.com/Action1Corp/PSAction1/blob/main/TERMS_OF_USE.md)
-# Provided AS IS
-# Use at your own risk
-# Review and test before production deployment
-# © Action1 Corporation
+# LIMITATION OF LIABILITY. IN NO EVENT SHALL ACTION1 OR ITS SUPPLIERS, OR THEIR RESPECTIVE 
+# OFFICERS, DIRECTORS, EMPLOYEES, OR AGENTS BE LIABLE WITH RESPECT TO THE WEBSITE OR
+# THE COMPONENTS OR THE SERVICES UNDER ANY CONTRACT, NEGLIGENCE, TORT, STRICT 
+# LIABILITY OR OTHER LEGAL OR EQUITABLE THEORY (I)FOR ANY AMOUNT IN THE AGGREGATE IN
+# EXCESS OF THE GREATER OF FEES PAID BY YOU THEREFOR OR $100; (II) FOR ANY INDIRECT,
+# INCIDENTAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES OF ANY KIND WHATSOEVER; (III) FOR
+# DATA LOSS OR COST OF PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; OR (IV) FOR ANY
+# MATTER BEYOND ACTION1’S REASONABLE CONTROL. SOME STATES DO NOT ALLOW THE
+# EXCLUSION OR LIMITATION OF INCIDENTAL OR CONSEQUENTIAL DAMAGES, SO THE ABOVE
+# LIMITATIONS AND EXCLUSIONS MAY NOT APPLY TO YOU.
+
+
 
 # Insert Script between @'...'@
+
 $customScriptContent = @'  
 $ProgressPreference = "SilentlyContinue" # Keep this in place
 
@@ -208,7 +215,12 @@ function Convert-ScriptBlockToBase64 {
     return [Convert]::ToBase64String($bytes)
 }
 
-function Get-ActiveUserSession {
+function Get-ActiveUserSessions {
+    [CmdletBinding()]
+    param(
+        [switch]$IncludeDisconnected  # auch WTSDisconnected (4) zurückgeben
+    )
+
     try {
         $pSessionInfo = [IntPtr]::Zero
         $sessionCount = 0
@@ -218,7 +230,8 @@ function Get-ActiveUserSession {
             0,
             1,
             [ref]$pSessionInfo,
-            [ref]$sessionCount)
+            [ref]$sessionCount
+        )
 
         if (-not $result) {
             throw "WTSEnumerateSessions failed with error: $([System.Runtime.InteropServices.Marshal]::GetLastWin32Error())"
@@ -227,15 +240,26 @@ function Get-ActiveUserSession {
         $dataSize = [System.Runtime.InteropServices.Marshal]::SizeOf([Type][NativeMethods+WTS_SESSION_INFO])
         $current = $pSessionInfo
 
+        # WTSConnectStateClass: WTSActive=0, WTSDisconnected=4
+        $wantedStates = if ($IncludeDisconnected) { @(0, 4) } else { @(0) }
+
+        $ids = New-Object System.Collections.Generic.List[int]
+
         for ($i = 0; $i -lt $sessionCount; $i++) {
-            $sessionInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure($current, [Type][NativeMethods+WTS_SESSION_INFO])
-            if ($sessionInfo.State -eq 0) {  # WTSActive
-                return $sessionInfo.SessionID
+            $sessionInfo = [System.Runtime.InteropServices.Marshal]::PtrToStructure(
+                $current,
+                [Type][NativeMethods+WTS_SESSION_INFO]
+            )
+
+            if ($wantedStates -contains [int]$sessionInfo.State) {
+                $ids.Add([int]$sessionInfo.SessionID)
             }
+
             $current = [IntPtr]::Add($current, $dataSize)
         }
 
-        throw "No active user session found"
+        # Kein Throw mehr: wenn nichts gefunden wurde, gib einfach ein leeres Array zurück
+        return $ids.ToArray()
     }
     finally {
         if ($pSessionInfo -ne [IntPtr]::Zero) {
@@ -246,7 +270,7 @@ function Get-ActiveUserSession {
 
 function Get-UserToken {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [uint32]$SessionId
     )
     $userToken = [IntPtr]::Zero
@@ -345,62 +369,65 @@ function Start-ProcessAsUserWithScript {
     $processInfo = New-Object NativeMethods+PROCESS_INFORMATION
 
     try {
-        $sessionId = Get-ActiveUserSession
-        
-        $userToken = Get-UserToken $sessionId
-        
-        $username = Get-UserName -SessionId $sessionId
-        
-        # Duplicate token to modify it
-        $result = [NativeMethods]::DuplicateTokenEx(
-            $userToken,
-            0xF01FF, # TOKEN_ALL_ACCESS
-            [IntPtr]::Zero,
-            2, # SecurityImpersonation
-            1, # TokenPrimary
-            [ref]$duplicateToken)
-        
-        if (-not $result) {
-            $errorCode = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            throw "DuplicateTokenEx failed. Error code: $errorCode"
+        $sessions = Get-ActiveUserSessions
+    
+        foreach ($sessionId in $sessions) {
+            
+            $userToken = Get-UserToken $sessionId
+            
+            $username = Get-UserName -SessionId $sessionId
+            
+            # Duplicate token to modify it
+            $result = [NativeMethods]::DuplicateTokenEx(
+                $userToken,
+                0xF01FF, # TOKEN_ALL_ACCESS
+                [IntPtr]::Zero,
+                2, # SecurityImpersonation
+                1, # TokenPrimary
+                [ref]$duplicateToken)
+            
+            if (-not $result) {
+                $errorCode = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                throw "DuplicateTokenEx failed. Error code: $errorCode"
+            }
+            
+            # Enable specific privileges
+            Enable-TokenPrivilege $duplicateToken "SeAssignPrimaryTokenPrivilege"
+            Enable-TokenPrivilege $duplicateToken "SeIncreaseQuotaPrivilege"
+            
+            $envBlock = Create-EnvironmentBlock $duplicateToken
+            
+            $encodedScript = Convert-ScriptBlockToBase64 $ScriptBlock
+            
+            $powershellPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+            
+            $commandLine = "`"$powershellPath`" -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encodedScript"
+            
+            $startupInfo.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($startupInfo)
+            $startupInfo.lpDesktop = "winsta0\default"
+            
+            $workingDirectory = $env:SystemRoot
+            
+            $result = [NativeMethods]::CreateProcessAsUser(
+                $duplicateToken,
+                $powershellPath,
+                $commandLine,
+                [IntPtr]::Zero,
+                [IntPtr]::Zero,
+                $false,
+                [NativeMethods]::CREATE_UNICODE_ENVIRONMENT,
+                $envBlock,
+                $workingDirectory,
+                [ref]$startupInfo,
+                [ref]$processInfo)
+            
+            if (-not $result) {
+                $errorCode = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
+                throw "CreateProcessAsUser failed. Error code: $errorCode"
+            }
+            
+            [NativeMethods]::WaitForSingleObject($processInfo.hProcess, [NativeMethods]::INFINITE)
         }
-        
-        # Enable specific privileges
-        Enable-TokenPrivilege $duplicateToken "SeAssignPrimaryTokenPrivilege"
-        Enable-TokenPrivilege $duplicateToken "SeIncreaseQuotaPrivilege"
-        
-        $envBlock = Create-EnvironmentBlock $duplicateToken
-        
-        $encodedScript = Convert-ScriptBlockToBase64 $ScriptBlock
-        
-        $powershellPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-        
-        $commandLine = "`"$powershellPath`" -NoProfile -ExecutionPolicy Bypass -EncodedCommand $encodedScript"
-        
-        $startupInfo.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($startupInfo)
-        $startupInfo.lpDesktop = "winsta0\default"
-        
-        $workingDirectory = $env:SystemRoot
-        
-        $result = [NativeMethods]::CreateProcessAsUser(
-            $duplicateToken,
-            $powershellPath,
-            $commandLine,
-            [IntPtr]::Zero,
-            [IntPtr]::Zero,
-            $false,
-            [NativeMethods]::CREATE_UNICODE_ENVIRONMENT,
-            $envBlock,
-            $workingDirectory,
-            [ref]$startupInfo,
-            [ref]$processInfo)
-        
-        if (-not $result) {
-            $errorCode = [System.Runtime.InteropServices.Marshal]::GetLastWin32Error()
-            throw "CreateProcessAsUser failed. Error code: $errorCode"
-        }
-        
-        [NativeMethods]::WaitForSingleObject($processInfo.hProcess, [NativeMethods]::INFINITE)
     }
     catch {
         throw
